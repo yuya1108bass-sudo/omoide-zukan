@@ -540,7 +540,14 @@ function save(){
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
 
 /* ---------- ふたりで共有(Firestore同期) ---------- */
-const FIREBASE_CONFIG = null; /* Firebaseの設定をここに入れると共有機能が有効になります */
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyCvpgVgdzKXwzIQ-rsCztqyYPtySDo9Qq0",
+  authDomain: "omoide-zukan.firebaseapp.com",
+  projectId: "omoide-zukan",
+  storageBucket: "omoide-zukan.firebasestorage.app",
+  messagingSenderId: "738932578633",
+  appId: "1:738932578633:web:cf04344a0ca783f4976298"
+};
 const SYNC_KEY = "omoide.sync.v1";
 let syncCode = (() => {
   try{ return (JSON.parse(localStorage.getItem(SYNC_KEY)) || {}).code || ""; }catch(e){ return ""; }
