@@ -437,6 +437,7 @@
 <div class="sheet-bg" id="sheetBg">
   <div class="sheet">
     <h3>メニュー</h3>
+    <button class="row" id="namesBtn"><span class="ico">🖍</span><span>なまえの登録<small>「だれの おもいで?」に出てくるなまえ</small></span></button>
     <button class="row" id="shareBtn"><span class="ico">🌈</span><span>ふたりで共有<small id="shareStatus">あいことばで、おなじずかんに</small></span></button>
     <button class="row" id="exportBtn"><span class="ico">💾</span><span>バックアップを保存<small>すべてのページをファイルに書き出します</small></span></button>
     <button class="row" id="importBtn"><span class="ico">📂</span><span>バックアップから復元<small>書き出したファイルを読み込みます</small></span></button>
@@ -452,6 +453,19 @@
     <div class="btns">
       <button class="no" id="dlgNo">やめる</button>
       <button class="yes" id="dlgYes">はい</button>
+    </div>
+  </div>
+</div>
+
+<!-- なまえの登録ダイアログ -->
+<div class="dlg-bg" id="namesBg">
+  <div class="dlg" style="text-align:left">
+    <p style="text-align:center;font-weight:700;margin-bottom:10px">🖍 なまえの登録</p>
+    <p style="font-size:.8rem;color:var(--ink-soft);margin-bottom:14px">「だれの おもいで?」に出てくるなまえです。上から順に、レインボーの色がつきます。</p>
+    <div id="nameRows"></div>
+    <div class="btns">
+      <button class="no" id="namesCancel">やめる</button>
+      <button class="yes" id="namesSave">保存する</button>
     </div>
   </div>
 </div>
@@ -479,8 +493,21 @@
 "use strict";
 const LS_KEY = "omoide.v1";
 const CATS = ["🧦 くつした・くつ","👕 ふく","🧸 おもちゃ","🍼 ベビー用品","🎨 さくひん","🌸 そのほか"];
-const WHOS = [["みや","#FBA04C"],["とき","#ECB80C"],["ふう","#3FBF77"],["さや","#FA5F72"],["ゆう","#4A8CF7"]];
-const WHO_COLOR = Object.fromEntries(WHOS);
+/* なまえはアプリ内で登録(コードには含めない)。上から順にレインボー色 */
+const PALETTE = ["#FBA04C","#ECB80C","#3FBF77","#FA5F72","#4A8CF7"];
+const MEMBERS_KEY = "omoide.members.v1";
+let members = (() => {
+  try{ const m = JSON.parse(localStorage.getItem(MEMBERS_KEY)); return Array.isArray(m) ? m : []; }catch(e){ return []; }
+})();
+const whoColor = n => {
+  const i = members.indexOf(n);
+  return i >= 0 ? PALETTE[i % PALETTE.length] : "#A9C5A0";
+};
+function saveMembers(pushCloud){
+  try{ localStorage.setItem(MEMBERS_KEY, JSON.stringify(members)); }catch(e){}
+  if(pushCloud && db && syncCode)
+    db.collection("families").doc(syncCode).set({ members }, { merge:true }).catch(() => {});
+}
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -518,7 +545,7 @@ const SYNC_KEY = "omoide.sync.v1";
 let syncCode = (() => {
   try{ return (JSON.parse(localStorage.getItem(SYNC_KEY)) || {}).code || ""; }catch(e){ return ""; }
 })();
-let db = null, unsubSync = null;
+let db = null, unsubSync = null, unsubFam = null;
 
 const fam = () => db.collection("families").doc(syncCode).collection("items");
 
@@ -533,11 +560,22 @@ function startSync(){
       save();
       refreshView();
     }, err => toast("同期でエラーが起きました 💦"));
+    /* なまえ(members)もふたりで同期する */
+    unsubFam = db.collection("families").doc(syncCode).onSnapshot(doc => {
+      const m = doc.data() && doc.data().members;
+      if(Array.isArray(m) && JSON.stringify(m) !== JSON.stringify(members)){
+        members = m;
+        saveMembers(false);
+        renderList();
+        if(!$("view-form").classList.contains("hidden")) renderWhos();
+      }
+    });
     return true;
   }catch(e){ toast("同期を開始できませんでした 💦"); return false; }
 }
 function stopSync(){
   if(unsubSync){ unsubSync(); unsubSync = null; }
+  if(unsubFam){ unsubFam(); unsubFam = null; }
   db = null;
 }
 function pushItem(it){
@@ -584,7 +622,7 @@ function renderList(){
       <div class="thumb">${it.photo ? `<img src="${it.photo}" alt="">` : "🧸"}</div>
       <div class="body">
         <div class="name">${esc(it.name)}</div>
-        <div class="meta">${it.who ? `<span class="dot" style="background:${WHO_COLOR[it.who] || "#A9C5A0"};width:7px;height:7px;margin-right:5px"></span>${esc(it.who)}${it.period ? " ・ " : ""}` : ""}${esc(it.period || "")}</div>
+        <div class="meta">${it.who ? `<span class="dot" style="background:${whoColor(it.who)};width:7px;height:7px;margin-right:5px"></span>${esc(it.who)}${it.period ? " ・ " : ""}` : ""}${esc(it.period || "")}</div>
       </div>
     </button>`;
   }).join("");
@@ -607,7 +645,7 @@ function openDetail(id){
     </div>
     <h3>${esc(it.name)}</h3>
     <div class="who-period">
-      ${it.who ? `<span class="tag" style="background:${WHO_COLOR[it.who] || "#A9C5A0"}26"><span class="dot" style="background:${WHO_COLOR[it.who] || "#A9C5A0"}"></span>${esc(it.who)}</span>` : ""}
+      ${it.who ? `<span class="tag" style="background:${whoColor(it.who)}26"><span class="dot" style="background:${whoColor(it.who)}"></span>${esc(it.who)}</span>` : ""}
       ${it.period ? `<span class="tag">🕰 ${esc(it.period)}</span>` : ""}
       <span class="tag">${esc(it.category || "")}</span>
     </div>
@@ -631,9 +669,15 @@ function renderCats(){
     b.onclick = () => { formCat = b.dataset.cat; renderCats(); });
 }
 function renderWhos(){
-  $("whoRow").innerHTML = WHOS.map(([n, c]) =>
-    `<button class="cat ${n===formWho?"on":""}" data-who="${n}"
-      style="${n===formWho ? `background:${c}26;border-color:${c};` : ""}"><span class="dot" style="background:${c}"></span>${n}</button>`).join("");
+  if(!members.length){
+    $("whoRow").innerHTML = `<span style="font-size:.78rem;color:var(--ink-soft)">メニュー(☰)の「なまえの登録」でなまえを登録すると、ここに選択肢が出てきます</span>`;
+    return;
+  }
+  $("whoRow").innerHTML = members.map((n, i) => {
+    const c = PALETTE[i % PALETTE.length];
+    return `<button class="cat ${n===formWho?"on":""}" data-who="${esc(n)}"
+      style="${n===formWho ? `background:${c}26;border-color:${c};` : ""}"><span class="dot" style="background:${c}"></span>${esc(n)}</button>`;
+  }).join("");
   $("whoRow").querySelectorAll(".cat").forEach(b =>
     b.onclick = () => { formWho = (formWho === b.dataset.who) ? "" : b.dataset.who; renderWhos(); });
 }
@@ -739,6 +783,29 @@ $("menuBtn").onclick = () => $("sheetBg").classList.add("show");
 $("closeSheet").onclick = () => $("sheetBg").classList.remove("show");
 $("sheetBg").onclick = e => { if(e.target === $("sheetBg")) $("sheetBg").classList.remove("show"); };
 
+$("namesBtn").onclick = () => {
+  $("sheetBg").classList.remove("show");
+  $("nameRows").innerHTML = [0,1,2,3,4].map(i =>
+    `<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+      <span class="dot" style="background:${PALETTE[i]};margin:0;flex:none"></span>
+      <input type="text" class="nameInput" maxlength="10" value="${esc(members[i] || "")}"
+        placeholder="なまえ ${i+1}(あいていてもOK)" style="flex:1;margin-bottom:0">
+    </div>`).join("");
+  $("namesBg").classList.add("show");
+};
+$("namesCancel").onclick = () => $("namesBg").classList.remove("show");
+$("namesBg").onclick = e => { if(e.target === $("namesBg")) $("namesBg").classList.remove("show"); };
+$("namesSave").onclick = () => {
+  const seen = new Set();
+  members = [...document.querySelectorAll(".nameInput")]
+    .map(x => x.value.trim())
+    .filter(n => n && !seen.has(n) && seen.add(n));
+  saveMembers(true);
+  $("namesBg").classList.remove("show");
+  renderList();
+  toast("なまえを保存しました 🌈");
+};
+
 function updateShareUI(){
   $("shareStatus").textContent = syncCode
     ? `共有中(あいことば: ${syncCode})`
@@ -762,6 +829,7 @@ $("shareJoin").onclick = () => {
   try{ localStorage.setItem(SYNC_KEY, JSON.stringify({ code })); }catch(e){}
   if(startSync()){
     localItems.forEach(it => pushItem(it));
+    if(members.length) saveMembers(true);
     $("shareBg").classList.remove("show");
     updateShareUI();
     toast("共有をはじめました 🌈 ふたりでひとつのずかんです");
