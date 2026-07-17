@@ -1,0 +1,859 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#FAF6EC">
+<title>おもいでずかん</title>
+<style>
+  :root{
+    --bg:#FAF6EC;
+    --paper:#FFFDF6;
+    --ink:#5C5148;
+    --ink-soft:#948A7E;
+    --line:#E8DFCE;
+    --sakura:#E8A0A4;
+    --sakura-soft:#F6DCDD;
+    --wakaba:#A9C5A0;
+    --wakaba-soft:#E3EDDE;
+    --sora:#A5C3D4;
+    --honey:#E9C46A;
+    --shadow:0 4px 14px rgba(92,81,72,.10);
+    --radius:18px;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html{font-size:16px;}
+  body{
+    font-family:"Hiragino Maru Gothic ProN","BIZ UDPGothic","Yu Gothic",sans-serif;
+    background:var(--bg);
+    background-image:radial-gradient(rgba(92,81,72,.035) 1px, transparent 1px);
+    background-size:22px 22px;
+    color:var(--ink);
+    min-height:100dvh;
+    line-height:1.7;
+    letter-spacing:.02em;
+    overflow-x:hidden;
+  }
+  button{font-family:inherit;color:inherit;border:none;background:none;cursor:pointer;}
+  input,textarea,select{font-family:inherit;color:inherit;font-size:16px;}
+  img{max-width:100%;display:block;}
+
+  /* ---------- さみとふゆ レインボー透かし ---------- */
+  body::before{
+    content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+    background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 220 124'%3E%3Cg fill='none' stroke-linecap='round' stroke-width='14'%3E%3Cpath stroke='%23FA5F72' d='M18 110a92 92 0 0 1 184 0'/%3E%3Cpath stroke='%23FBA04C' d='M34 110a76 76 0 0 1 152 0'/%3E%3Cpath stroke='%23ECB80C' d='M50 110a60 60 0 0 1 120 0'/%3E%3Cpath stroke='%233FBF77' d='M66 110a44 44 0 0 1 88 0'/%3E%3Cpath stroke='%234A8CF7' d='M82 110a28 28 0 0 1 56 0'/%3E%3C/g%3E%3C/svg%3E") no-repeat center 36%;
+    background-size:min(80vw, 430px);
+    opacity:.08;
+  }
+  header, main, .fab{position:relative;}
+  main{z-index:1;}
+  .rainbow{display:block;margin:0 auto;}
+  .wordmark{font-weight:800;font-size:1.65rem;letter-spacing:.01em;line-height:1.3;}
+  .wordmark .c1{color:#FA5F72;} .wordmark .c2{color:#FBA04C;}
+  .wordmark .c3{color:#ECB80C;} .wordmark .c4{color:#3FBF77;}
+  .wordmark .c5{color:#4A8CF7;}
+  .kana{color:#A8A1AE;letter-spacing:.5em;text-indent:.5em;font-size:.85rem;margin-top:2px;}
+  .hero{text-align:center;padding:12px 0 20px;animation:fadein .5s ease;}
+  .dot{
+    display:inline-block;width:9px;height:9px;border-radius:50%;
+    margin-right:7px;vertical-align:2px;
+  }
+
+  /* ---------- header ---------- */
+  header{
+    position:sticky;top:0;z-index:20;
+    background:rgba(250,246,236,.92);
+    backdrop-filter:blur(8px);
+    border-bottom:1px dashed var(--line);
+    padding:calc(env(safe-area-inset-top) + 12px) 18px 10px;
+    display:flex;align-items:center;justify-content:space-between;
+  }
+  .app-title{font-size:1.15rem;font-weight:700;display:flex;align-items:center;gap:8px;}
+  .app-title .mark{font-size:1.3rem;}
+  .app-title small{font-size:.65rem;font-weight:400;color:var(--ink-soft);display:block;line-height:1.2;}
+  .icon-btn{
+    width:40px;height:40px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    font-size:1.15rem;background:var(--paper);box-shadow:var(--shadow);
+  }
+  .icon-btn:active{transform:scale(.92);}
+
+  main{max-width:520px;margin:0 auto;padding:16px 18px calc(env(safe-area-inset-bottom) + 110px);}
+
+  /* ---------- 表紙(初回) ---------- */
+  .cover{
+    text-align:center;padding:34px 10px 10px;
+    animation:fadein .6s ease;
+  }
+  .cover .book{
+    background:linear-gradient(160deg,#F6E7D7,#F1DBC8);
+    border-radius:14px 22px 22px 14px;
+    box-shadow:var(--shadow), inset 12px 0 0 rgba(92,81,72,.08);
+    padding:40px 26px;max-width:300px;margin:0 auto 22px;
+    border:1px solid #E4D2BC;
+  }
+  .cover .book .frame{
+    border:2px dashed rgba(92,81,72,.25);border-radius:12px;
+    padding:26px 14px;background:rgba(255,253,246,.6);
+  }
+  .cover h1{font-size:1.5rem;letter-spacing:.15em;margin:10px 0 4px;}
+  .cover .sub{font-size:.8rem;color:var(--ink-soft);}
+  .cover p.lead{font-size:.9rem;color:var(--ink-soft);margin:0 auto 26px;max-width:320px;}
+
+  /* ---------- ページ一覧(ほんだな) ---------- */
+  .shelf-head{display:flex;align-items:baseline;justify-content:space-between;margin:6px 2px 12px;}
+  .shelf-head h2{font-size:1rem;}
+  .shelf-head .count{font-size:.78rem;color:var(--ink-soft);}
+  .chips{display:flex;gap:8px;overflow-x:auto;padding:2px 2px 12px;scrollbar-width:none;}
+  .chips::-webkit-scrollbar{display:none;}
+  .chip{
+    flex:0 0 auto;padding:6px 14px;border-radius:999px;font-size:.8rem;
+    background:var(--paper);border:1px solid var(--line);color:var(--ink-soft);
+  }
+  .chip.on{background:var(--sakura-soft);border-color:var(--sakura);color:var(--ink);font-weight:700;}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  .card{
+    background:var(--paper);border-radius:var(--radius);box-shadow:var(--shadow);
+    overflow:hidden;text-align:left;padding:0;position:relative;
+    animation:fadein .4s ease;
+  }
+  .card:active{transform:scale(.97);}
+  .card .thumb{
+    aspect-ratio:1/1;background:var(--wakaba-soft);
+    display:flex;align-items:center;justify-content:center;font-size:2rem;
+  }
+  .card .thumb img{width:100%;height:100%;object-fit:cover;}
+  .card .body{padding:10px 12px 12px;}
+  .card .name{font-weight:700;font-size:.9rem;line-height:1.4;}
+  .card .meta{font-size:.72rem;color:var(--ink-soft);margin-top:2px;}
+  .card .pageno{
+    position:absolute;top:8px;left:8px;background:rgba(255,253,246,.9);
+    font-size:.65rem;padding:2px 8px;border-radius:999px;color:var(--ink-soft);
+  }
+
+  .empty{
+    text-align:center;padding:44px 20px;color:var(--ink-soft);
+    animation:fadein .5s ease;
+  }
+  .empty .art{font-size:3rem;margin-bottom:10px;}
+  .empty p{font-size:.88rem;}
+
+  /* ---------- ページ詳細(絵本ページ) ---------- */
+  .page-wrap{animation:fadein .35s ease;}
+  .page{
+    background:var(--paper);border-radius:6px 20px 20px 6px;
+    box-shadow:var(--shadow), inset 10px 0 0 rgba(233,196,106,.18);
+    padding:26px 22px 22px;position:relative;
+    border:1px solid var(--line);
+  }
+  .page .pagenum{
+    position:absolute;top:14px;right:18px;font-size:.7rem;color:var(--ink-soft);letter-spacing:.1em;
+  }
+  .photo-frame{
+    background:#fff;padding:10px 10px 14px;border-radius:4px;
+    box-shadow:0 3px 10px rgba(92,81,72,.15);
+    transform:rotate(-1.2deg);margin:14px auto 22px;max-width:340px;position:relative;
+  }
+  .photo-frame::before{
+    content:"";position:absolute;top:-12px;left:50%;transform:translateX(-50%) rotate(2deg);
+    width:92px;height:26px;background:rgba(232,160,164,.45);border-radius:2px;
+  }
+  .photo-frame img{border-radius:2px;aspect-ratio:4/3;object-fit:cover;width:100%;}
+  .photo-frame .nophoto{
+    aspect-ratio:4/3;display:flex;align-items:center;justify-content:center;
+    background:var(--wakaba-soft);font-size:2.4rem;border-radius:2px;
+  }
+  .page h3{font-size:1.25rem;text-align:center;letter-spacing:.06em;margin-bottom:4px;}
+  .page .who-period{text-align:center;font-size:.8rem;color:var(--ink-soft);margin-bottom:16px;}
+  .page .who-period .tag{
+    display:inline-block;background:var(--wakaba-soft);border-radius:999px;
+    padding:2px 12px;margin:2px 3px;
+  }
+  .page .memo{
+    background:repeating-linear-gradient(transparent,transparent 30px,var(--line) 30px,var(--line) 31px);
+    line-height:31px;font-size:.92rem;padding:0 4px;min-height:62px;white-space:pre-wrap;
+  }
+  .page .recorded{margin-top:18px;text-align:right;font-size:.7rem;color:var(--ink-soft);}
+  .page-nav{display:flex;justify-content:space-between;align-items:center;margin-top:16px;}
+  .page-nav button{
+    background:var(--paper);box-shadow:var(--shadow);border-radius:999px;
+    padding:9px 18px;font-size:.85rem;color:var(--ink);
+  }
+  .page-nav button:disabled{opacity:.35;}
+  .page-actions{display:flex;justify-content:center;gap:12px;margin-top:20px;}
+  .page-actions button{font-size:.78rem;color:var(--ink-soft);padding:8px 14px;border-radius:999px;border:1px solid var(--line);background:var(--paper);}
+
+  /* ---------- フォーム ---------- */
+  .form-card{
+    background:var(--paper);border-radius:var(--radius);box-shadow:var(--shadow);
+    padding:22px 20px;animation:fadein .35s ease;
+  }
+  .form-card h2{font-size:1.05rem;text-align:center;margin-bottom:4px;}
+  .form-card .hint{text-align:center;font-size:.75rem;color:var(--ink-soft);margin-bottom:18px;}
+  .field{margin-bottom:16px;}
+  .field label{display:block;font-size:.8rem;font-weight:700;margin-bottom:6px;}
+  .field label .opt{font-weight:400;color:var(--ink-soft);font-size:.7rem;}
+  .field input[type=text],.field textarea{
+    width:100%;border:1.5px solid var(--line);border-radius:12px;
+    padding:11px 14px;background:#fff;outline:none;
+  }
+  .field input[type=text]:focus,.field textarea:focus{border-color:var(--sakura);}
+  .field textarea{min-height:110px;resize:vertical;}
+  .photo-pick{
+    width:100%;border:2px dashed var(--line);border-radius:14px;background:#fff;
+    padding:0;overflow:hidden;display:flex;align-items:center;justify-content:center;
+    min-height:150px;flex-direction:column;gap:6px;color:var(--ink-soft);font-size:.85rem;
+  }
+  .photo-pick img{width:100%;max-height:290px;object-fit:contain;background:#fff;}
+  .photo-pick .cam{font-size:1.8rem;}
+  .cat-row{display:flex;flex-wrap:wrap;gap:8px;}
+  .cat{
+    padding:7px 14px;border-radius:999px;font-size:.82rem;background:#fff;
+    border:1.5px solid var(--line);color:var(--ink-soft);
+  }
+  .cat.on{background:var(--sakura-soft);border-color:var(--sakura);color:var(--ink);font-weight:700;}
+  .btn-main{
+    display:block;width:100%;padding:15px;border-radius:999px;
+    background:var(--sakura);color:#fff;font-size:1rem;font-weight:700;
+    box-shadow:0 5px 14px rgba(232,160,164,.4);letter-spacing:.1em;
+  }
+  .btn-main:active{transform:scale(.98);}
+  .btn-sub{
+    display:block;width:100%;padding:12px;border-radius:999px;margin-top:10px;
+    color:var(--ink-soft);font-size:.85rem;
+  }
+
+  /* ---------- FAB ---------- */
+  .fab{
+    position:fixed;right:20px;bottom:calc(env(safe-area-inset-bottom) + 24px);z-index:30;
+    width:62px;height:62px;border-radius:50%;
+    background:var(--sakura);color:#fff;font-size:1.9rem;line-height:1;
+    box-shadow:0 6px 18px rgba(232,160,164,.5);
+    display:flex;align-items:center;justify-content:center;
+    transition:transform .15s;
+  }
+  .fab:active{transform:scale(.9);}
+
+  /* ---------- メニューシート ---------- */
+  .sheet-bg{
+    position:fixed;inset:0;background:rgba(92,81,72,.35);z-index:40;
+    display:none;align-items:flex-end;justify-content:center;
+  }
+  .sheet-bg.show{display:flex;}
+  .sheet{
+    background:var(--paper);border-radius:22px 22px 0 0;width:100%;max-width:520px;
+    padding:22px 22px calc(env(safe-area-inset-bottom) + 26px);
+    animation:slideup .25s ease;
+  }
+  .sheet h3{font-size:.95rem;text-align:center;margin-bottom:16px;}
+  .sheet .row{
+    display:flex;align-items:center;gap:12px;width:100%;
+    padding:14px 6px;border-bottom:1px dashed var(--line);font-size:.92rem;text-align:left;
+  }
+  .sheet .row:last-of-type{border-bottom:none;}
+  .sheet .row .ico{font-size:1.2rem;width:28px;text-align:center;}
+  .sheet .row small{display:block;font-size:.7rem;color:var(--ink-soft);}
+
+  /* ---------- ダイアログ ---------- */
+  .dlg-bg{
+    position:fixed;inset:0;background:rgba(92,81,72,.35);z-index:50;
+    display:none;align-items:center;justify-content:center;padding:30px;
+  }
+  .dlg-bg.show{display:flex;}
+  .dlg{
+    background:var(--paper);border-radius:20px;padding:26px 22px;max-width:320px;width:100%;
+    text-align:center;box-shadow:var(--shadow);animation:fadein .2s ease;
+  }
+  .dlg p{font-size:.92rem;margin-bottom:20px;white-space:pre-wrap;}
+  .dlg input[type=text]{
+    width:100%;border:1.5px solid var(--line);border-radius:12px;
+    padding:11px 14px;background:#fff;outline:none;margin-bottom:16px;
+  }
+  .dlg input[type=text]:focus{border-color:var(--sakura);}
+  .dlg .btns{display:flex;gap:10px;}
+  .dlg .btns button{flex:1;padding:12px;border-radius:999px;font-size:.9rem;font-weight:700;}
+  .dlg .no{background:var(--bg);color:var(--ink-soft);}
+  .dlg .yes{background:var(--sakura);color:#fff;}
+
+  /* ---------- トースト ---------- */
+  .toast{
+    position:fixed;left:50%;transform:translateX(-50%) translateY(20px);
+    bottom:calc(env(safe-area-inset-bottom) + 100px);z-index:60;
+    background:var(--ink);color:#FFFDF6;padding:11px 22px;border-radius:999px;
+    font-size:.85rem;opacity:0;pointer-events:none;transition:all .3s;max-width:86vw;
+  }
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+  /* ---------- ありがとう演出 ---------- */
+  .thanks-layer{position:fixed;inset:0;z-index:70;pointer-events:none;overflow:hidden;}
+  .thanks-layer span{
+    position:absolute;bottom:-40px;font-size:1.1rem;color:var(--sakura);
+    animation:floatup 2.8s ease-out forwards;font-weight:700;white-space:nowrap;
+    text-shadow:0 1px 0 #fff;
+  }
+  @keyframes floatup{
+    0%{transform:translateY(0) rotate(0deg);opacity:0;}
+    12%{opacity:1;}
+    100%{transform:translateY(-88vh) rotate(14deg);opacity:0;}
+  }
+  @keyframes fadein{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:none;}}
+  @keyframes slideup{from{transform:translateY(40px);}to{transform:none;}}
+
+  .hidden{display:none !important;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="app-title">
+    <svg class="mark" width="34" viewBox="0 0 220 124" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <g fill="none" stroke-linecap="round" stroke-width="15">
+        <path stroke="#FA5F72" d="M18 110a92 92 0 0 1 184 0"/>
+        <path stroke="#FBA04C" d="M34 110a76 76 0 0 1 152 0"/>
+        <path stroke="#ECB80C" d="M50 110a60 60 0 0 1 120 0"/>
+        <path stroke="#3FBF77" d="M66 110a44 44 0 0 1 88 0"/>
+        <path stroke="#4A8CF7" d="M82 110a28 28 0 0 1 56 0"/>
+      </g>
+    </svg>
+    <span>おもいでずかん<small>ちいさなありがとうを、いつまでも</small></span>
+  </div>
+  <button class="icon-btn" id="menuBtn" aria-label="メニュー">☰</button>
+</header>
+
+<main>
+  <!-- 表紙(初回のみ) -->
+  <section id="view-cover" class="cover hidden">
+    <div class="book">
+      <div class="frame">
+        <svg class="rainbow" width="190" viewBox="0 0 220 124" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="さみとふゆのレインボー">
+          <g fill="none" stroke-linecap="round" stroke-width="14">
+            <path stroke="#FA5F72" d="M18 110a92 92 0 0 1 184 0"/>
+            <path stroke="#FBA04C" d="M34 110a76 76 0 0 1 152 0"/>
+            <path stroke="#ECB80C" d="M50 110a60 60 0 0 1 120 0"/>
+            <path stroke="#3FBF77" d="M66 110a44 44 0 0 1 88 0"/>
+            <path stroke="#4A8CF7" d="M82 110a28 28 0 0 1 56 0"/>
+          </g>
+        </svg>
+        <div class="wordmark" style="margin-top:14px"><span class="c1">Sa</span><span class="c2">Mi</span><span class="c3">To</span><span class="c4">Fu</span><span class="c5">Yu</span></div>
+        <div class="kana">さみとふゆ</div>
+        <h1 style="font-size:1.05rem;margin-top:16px">おもいでずかん</h1>
+        <div class="sub">〜 ちいさなありがとうを、いつまでも 〜</div>
+      </div>
+    </div>
+    <p class="lead">小さくなった靴下も、卒業したおもちゃも。<br>「ありがとう」と一緒に、<br>絵本の1ページにして残していきましょう。</p>
+    <button class="btn-main" style="max-width:300px;margin:0 auto" id="coverStart">はじめる</button>
+  </section>
+
+  <!-- ほんだな(一覧) -->
+  <section id="view-list" class="hidden">
+    <div class="hero">
+      <svg class="rainbow" width="170" viewBox="0 0 220 124" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="さみとふゆのレインボー">
+        <g fill="none" stroke-linecap="round" stroke-width="14">
+          <path stroke="#FA5F72" d="M18 110a92 92 0 0 1 184 0"/>
+          <path stroke="#FBA04C" d="M34 110a76 76 0 0 1 152 0"/>
+          <path stroke="#ECB80C" d="M50 110a60 60 0 0 1 120 0"/>
+          <path stroke="#3FBF77" d="M66 110a44 44 0 0 1 88 0"/>
+          <path stroke="#4A8CF7" d="M82 110a28 28 0 0 1 56 0"/>
+        </g>
+      </svg>
+      <div class="wordmark" style="font-size:1.3rem;margin-top:8px"><span class="c1">Sa</span><span class="c2">Mi</span><span class="c3">To</span><span class="c4">Fu</span><span class="c5">Yu</span></div>
+      <div class="kana" style="font-size:.72rem">さみとふゆ</div>
+    </div>
+    <div class="shelf-head">
+      <h2>📖 おもいでのページ</h2>
+      <span class="count" id="countLabel"></span>
+    </div>
+    <div class="chips" id="chipRow"></div>
+    <div class="grid" id="grid"></div>
+    <div class="empty hidden" id="emptyBox">
+      <div class="art">🧦 🍼 🧸</div>
+      <p>まだページがありません。<br>右下の「＋」から、<br>最初のおもいでを残してみましょう。</p>
+    </div>
+  </section>
+
+  <!-- ページ詳細 -->
+  <section id="view-detail" class="page-wrap hidden">
+    <div class="page" id="pageBody"></div>
+    <div class="page-nav">
+      <button id="prevBtn">◀ まえのページ</button>
+      <button id="backBtn" style="font-size:.78rem;color:var(--ink-soft)">いちらんへ</button>
+      <button id="nextBtn">つぎのページ ▶</button>
+    </div>
+    <div class="page-actions">
+      <button id="editBtn">✏️ 編集する</button>
+      <button id="delBtn">🕊 手放す(削除)</button>
+    </div>
+  </section>
+
+  <!-- 追加・編集フォーム -->
+  <section id="view-form" class="hidden">
+    <div class="form-card">
+      <h2 id="formTitle">あたらしいページ</h2>
+      <p class="hint">手放すまえに、パシャリと一枚。</p>
+
+      <div class="field">
+        <label>しゃしん <span class="opt">タップして撮影・選択</span></label>
+        <button class="photo-pick" id="photoPick">
+          <span class="cam" id="photoPlaceholder">📷</span>
+          <span id="photoText">写真をえらぶ</span>
+        </button>
+        <input type="file" id="photoInput" accept="image/*" class="hidden">
+      </div>
+
+      <div class="field">
+        <label>なまえ <span class="opt">例:はじめての靴下</span></label>
+        <input type="text" id="fName" maxlength="40" placeholder="このアイテムのなまえ">
+      </div>
+
+      <div class="field">
+        <label>だれの おもいで? <span class="opt">もういちど押すと外せます</span></label>
+        <div class="cat-row" id="whoRow"></div>
+      </div>
+
+      <div class="field">
+        <label>つかっていたころ <span class="opt">任意・例:0〜6ヶ月のころ</span></label>
+        <input type="text" id="fPeriod" maxlength="30" placeholder="例:生まれてすぐ〜半年ごろ">
+      </div>
+
+      <div class="field">
+        <label>カテゴリ</label>
+        <div class="cat-row" id="catRow"></div>
+      </div>
+
+      <div class="field">
+        <label>おもいで <span class="opt">任意</span></label>
+        <textarea id="fMemo" maxlength="1000" placeholder="小さな足にはかせた日のこと、よく遊んだ場所のこと。&#10;未来のわが子と自分へ、手紙を書くように。"></textarea>
+      </div>
+
+      <button class="btn-main" id="saveBtn">ありがとうを込めて保存</button>
+      <button class="btn-sub" id="cancelBtn">やめる</button>
+    </div>
+  </section>
+</main>
+
+<button class="fab hidden" id="fab" aria-label="ページを追加">＋</button>
+
+<!-- メニュー -->
+<div class="sheet-bg" id="sheetBg">
+  <div class="sheet">
+    <h3>メニュー</h3>
+    <button class="row" id="shareBtn"><span class="ico">🌈</span><span>ふたりで共有<small id="shareStatus">あいことばで、おなじずかんに</small></span></button>
+    <button class="row" id="exportBtn"><span class="ico">💾</span><span>バックアップを保存<small>すべてのページをファイルに書き出します</small></span></button>
+    <button class="row" id="importBtn"><span class="ico">📂</span><span>バックアップから復元<small>書き出したファイルを読み込みます</small></span></button>
+    <input type="file" id="importInput" accept=".json,application/json" class="hidden">
+    <button class="row" id="closeSheet"><span class="ico">✖️</span><span>とじる</span></button>
+  </div>
+</div>
+
+<!-- 確認ダイアログ -->
+<div class="dlg-bg" id="dlgBg">
+  <div class="dlg">
+    <p id="dlgMsg"></p>
+    <div class="btns">
+      <button class="no" id="dlgNo">やめる</button>
+      <button class="yes" id="dlgYes">はい</button>
+    </div>
+  </div>
+</div>
+
+<!-- ふたりで共有ダイアログ -->
+<div class="dlg-bg" id="shareBg">
+  <div class="dlg" style="text-align:left">
+    <p style="text-align:center;font-weight:700;margin-bottom:10px">🌈 ふたりで共有</p>
+    <p style="font-size:.8rem;color:var(--ink-soft);margin-bottom:14px">ふたりだけの「あいことば」を決めて、それぞれのスマホで同じものを入力すると、おなじずかんを見られるようになります。</p>
+    <input type="text" id="shareCode" maxlength="40" placeholder="例:samitofuyu-2026" autocapitalize="off" autocomplete="off">
+    <div class="btns">
+      <button class="no" id="shareCancel">やめる</button>
+      <button class="yes" id="shareJoin">共有をはじめる</button>
+    </div>
+    <button class="btn-sub hidden" id="shareLeave">この端末の共有を解除する</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<div class="thanks-layer" id="thanksLayer"></div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script>
+"use strict";
+const LS_KEY = "omoide.v1";
+const CATS = ["🧦 くつした・くつ","👕 ふく","🧸 おもちゃ","🍼 ベビー用品","🎨 さくひん","🌸 そのほか"];
+const WHOS = [["みや","#FBA04C"],["とき","#ECB80C"],["ふう","#3FBF77"],["さや","#FA5F72"],["ゆう","#4A8CF7"]];
+const WHO_COLOR = Object.fromEntries(WHOS);
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+let state = load();
+let currentId = null;      // 表示中ページ
+let editingId = null;      // 編集中(nullなら新規)
+let formPhoto = null;      // フォームの写真dataURI
+let formCat = CATS[0];
+let formWho = "";
+let filterCat = "すべて";
+let filteredIds = [];
+
+function load(){
+  try{
+    const raw = localStorage.getItem(LS_KEY);
+    if(raw){ const d = JSON.parse(raw); if(d && Array.isArray(d.items)) return d; }
+  }catch(e){}
+  return { items: [], started: false };
+}
+function save(){
+  try{
+    localStorage.setItem(LS_KEY, JSON.stringify(state));
+    return true;
+  }catch(e){
+    toast("保存できませんでした。容量がいっぱいかもしれません 💦");
+    return false;
+  }
+}
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+
+/* ---------- ふたりで共有(Firestore同期) ---------- */
+const FIREBASE_CONFIG = null; /* Firebaseの設定をここに入れると共有機能が有効になります */
+const SYNC_KEY = "omoide.sync.v1";
+let syncCode = (() => {
+  try{ return (JSON.parse(localStorage.getItem(SYNC_KEY)) || {}).code || ""; }catch(e){ return ""; }
+})();
+let db = null, unsubSync = null;
+
+const fam = () => db.collection("families").doc(syncCode).collection("items");
+
+function startSync(){
+  if(!FIREBASE_CONFIG || !syncCode || typeof firebase === "undefined") return false;
+  try{
+    if(!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
+    db = firebase.firestore();
+    unsubSync = fam().onSnapshot(snap => {
+      state.items = snap.docs.map(d => d.data())
+        .sort((a,b) => (a.createdAt||0) - (b.createdAt||0));
+      save();
+      refreshView();
+    }, err => toast("同期でエラーが起きました 💦"));
+    return true;
+  }catch(e){ toast("同期を開始できませんでした 💦"); return false; }
+}
+function stopSync(){
+  if(unsubSync){ unsubSync(); unsubSync = null; }
+  db = null;
+}
+function pushItem(it){
+  if(db && syncCode) fam().doc(it.id).set(it)
+    .catch(() => toast("クラウドに送れませんでした。電波のあるところで開き直してください 💦"));
+}
+function removeItem(id){
+  if(db && syncCode) fam().doc(id).delete().catch(() => {});
+}
+function refreshView(){
+  if(!$("view-detail").classList.contains("hidden")){
+    if(state.items.some(x => x.id === currentId)) openDetail(currentId);
+    else { renderList(); show("view-list"); }
+  }else{
+    renderList();
+  }
+}
+
+/* ---------- 画面切替 ---------- */
+function show(view){
+  ["view-cover","view-list","view-detail","view-form"].forEach(v => $(v).classList.toggle("hidden", v !== view));
+  $("fab").classList.toggle("hidden", view !== "view-list");
+  window.scrollTo(0,0);
+}
+
+/* ---------- 一覧 ---------- */
+function renderChips(){
+  const cats = ["すべて", ...CATS];
+  $("chipRow").innerHTML = cats.map(c =>
+    `<button class="chip ${c===filterCat?"on":""}" data-cat="${esc(c)}">${esc(c)}</button>`).join("");
+  $("chipRow").querySelectorAll(".chip").forEach(b =>
+    b.onclick = () => { filterCat = b.dataset.cat; renderList(); });
+}
+function renderList(){
+  renderChips();
+  const items = state.items.filter(it => filterCat === "すべて" || it.category === filterCat);
+  filteredIds = items.map(it => it.id);
+  $("countLabel").textContent = state.items.length ? `ぜんぶで ${state.items.length} ページ` : "";
+  $("emptyBox").classList.toggle("hidden", state.items.length > 0);
+  $("grid").innerHTML = items.map(it => {
+    const pageNo = state.items.findIndex(x => x.id === it.id) + 1;
+    return `<button class="card" data-id="${it.id}">
+      <div class="pageno">Page ${pageNo}</div>
+      <div class="thumb">${it.photo ? `<img src="${it.photo}" alt="">` : "🧸"}</div>
+      <div class="body">
+        <div class="name">${esc(it.name)}</div>
+        <div class="meta">${it.who ? `<span class="dot" style="background:${WHO_COLOR[it.who] || "#A9C5A0"};width:7px;height:7px;margin-right:5px"></span>${esc(it.who)}${it.period ? " ・ " : ""}` : ""}${esc(it.period || "")}</div>
+      </div>
+    </button>`;
+  }).join("");
+  $("grid").querySelectorAll(".card").forEach(c =>
+    c.onclick = () => openDetail(c.dataset.id));
+}
+
+/* ---------- 詳細ページ ---------- */
+function openDetail(id){
+  currentId = id;
+  const it = state.items.find(x => x.id === id);
+  if(!it){ show("view-list"); return; }
+  const pageNo = state.items.findIndex(x => x.id === id) + 1;
+  const d = new Date(it.createdAt);
+  const dateStr = `${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日 に記録`;
+  $("pageBody").innerHTML = `
+    <div class="pagenum">Page ${pageNo} / ${state.items.length}</div>
+    <div class="photo-frame">
+      ${it.photo ? `<img src="${it.photo}" alt="${esc(it.name)}">` : `<div class="nophoto">🧸</div>`}
+    </div>
+    <h3>${esc(it.name)}</h3>
+    <div class="who-period">
+      ${it.who ? `<span class="tag" style="background:${WHO_COLOR[it.who] || "#A9C5A0"}26"><span class="dot" style="background:${WHO_COLOR[it.who] || "#A9C5A0"}"></span>${esc(it.who)}</span>` : ""}
+      ${it.period ? `<span class="tag">🕰 ${esc(it.period)}</span>` : ""}
+      <span class="tag">${esc(it.category || "")}</span>
+    </div>
+    <div class="memo">${it.memo ? esc(it.memo) : "（おもいでは、あとから書き足せます）"}</div>
+    <div class="recorded">${dateStr}</div>`;
+  // ページ送りは表示中のフィルタ順で
+  const ids = filteredIds.length ? filteredIds : state.items.map(x=>x.id);
+  const idx = ids.indexOf(id);
+  $("prevBtn").disabled = idx <= 0;
+  $("nextBtn").disabled = idx < 0 || idx >= ids.length - 1;
+  $("prevBtn").onclick = () => idx > 0 && openDetail(ids[idx-1]);
+  $("nextBtn").onclick = () => idx < ids.length-1 && openDetail(ids[idx+1]);
+  show("view-detail");
+}
+
+/* ---------- フォーム ---------- */
+function renderCats(){
+  $("catRow").innerHTML = CATS.map(c =>
+    `<button class="cat ${c===formCat?"on":""}" data-cat="${esc(c)}">${esc(c)}</button>`).join("");
+  $("catRow").querySelectorAll(".cat").forEach(b =>
+    b.onclick = () => { formCat = b.dataset.cat; renderCats(); });
+}
+function renderWhos(){
+  $("whoRow").innerHTML = WHOS.map(([n, c]) =>
+    `<button class="cat ${n===formWho?"on":""}" data-who="${n}"
+      style="${n===formWho ? `background:${c}26;border-color:${c};` : ""}"><span class="dot" style="background:${c}"></span>${n}</button>`).join("");
+  $("whoRow").querySelectorAll(".cat").forEach(b =>
+    b.onclick = () => { formWho = (formWho === b.dataset.who) ? "" : b.dataset.who; renderWhos(); });
+}
+function openForm(id){
+  editingId = id || null;
+  const it = id ? state.items.find(x => x.id === id) : null;
+  $("formTitle").textContent = it ? "ページを編集" : "あたらしいページ";
+  $("fName").value = it ? it.name : "";
+  $("fPeriod").value = it ? (it.period || "") : "";
+  $("fMemo").value = it ? (it.memo || "") : "";
+  formCat = it ? (it.category || CATS[0]) : CATS[0];
+  formWho = it ? (it.who || "") : "";
+  formPhoto = it ? (it.photo || null) : null;
+  renderCats(); renderWhos(); renderPhotoPick();
+  show("view-form");
+}
+function renderPhotoPick(){
+  const btn = $("photoPick");
+  if(formPhoto){
+    btn.innerHTML = `<img src="${formPhoto}" alt="えらんだ写真">`;
+  }else{
+    btn.innerHTML = `<span class="cam">📷</span><span>写真をえらぶ</span>`;
+  }
+}
+$("photoPick").onclick = () => $("photoInput").click();
+$("photoInput").onchange = e => {
+  const f = e.target.files && e.target.files[0];
+  if(!f) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const img = new Image();
+    img.onload = () => {
+      const MAX = 1000;
+      let w = img.width, h = img.height;
+      if(Math.max(w,h) > MAX){ const r = MAX/Math.max(w,h); w = Math.round(w*r); h = Math.round(h*r); }
+      const cv = document.createElement("canvas");
+      cv.width = w; cv.height = h;
+      cv.getContext("2d").drawImage(img, 0, 0, w, h);
+      /* クラウド共有の1ページ上限(約1MB)に収まるまで圧縮 */
+      let q = 0.8, out = cv.toDataURL("image/jpeg", q);
+      while(out.length > 850000 && q > 0.45){
+        q -= 0.1;
+        out = cv.toDataURL("image/jpeg", q);
+      }
+      formPhoto = out;
+      renderPhotoPick();
+    };
+    img.src = ev.target.result;
+  };
+  reader.readAsDataURL(f);
+  e.target.value = "";
+};
+
+$("saveBtn").onclick = () => {
+  const name = $("fName").value.trim();
+  if(!name){ toast("なまえを入れてあげてください 🧦"); $("fName").focus(); return; }
+  const data = {
+    name,
+    who: formWho,
+    period: $("fPeriod").value.trim(),
+    memo: $("fMemo").value.trim(),
+    category: formCat,
+    photo: formPhoto
+  };
+  let savedId, savedItem;
+  if(editingId){
+    const it = state.items.find(x => x.id === editingId);
+    Object.assign(it, data);
+    savedId = editingId; savedItem = it;
+  }else{
+    const it = { id: uid(), createdAt: Date.now(), ...data };
+    state.items.push(it);
+    savedId = it.id; savedItem = it;
+  }
+  if(!save()) return;
+  pushItem(savedItem);
+  filterCat = "すべて";
+  renderList();
+  openDetail(savedId);
+  if(!editingId) thanksRain();
+  toast(editingId ? "書きなおしました ✏️" : "ずかんに 1ページ ふえました 📖");
+  editingId = null;
+};
+$("cancelBtn").onclick = () => currentId && state.items.some(x=>x.id===currentId) ? openDetail(currentId) : show("view-list");
+
+/* ---------- 詳細の操作 ---------- */
+$("backBtn").onclick = () => { renderList(); show("view-list"); };
+$("editBtn").onclick = () => openForm(currentId);
+$("delBtn").onclick = () => {
+  const it = state.items.find(x => x.id === currentId);
+  if(!it) return;
+  ask(`「${it.name}」のページを手放しますか?\nこの操作はもとに戻せません。`, () => {
+    removeItem(currentId);
+    state.items = state.items.filter(x => x.id !== currentId);
+    save();
+    renderList(); show("view-list");
+    toast("いままで ありがとう 🕊");
+  });
+};
+
+/* ---------- メニュー ---------- */
+$("menuBtn").onclick = () => $("sheetBg").classList.add("show");
+$("closeSheet").onclick = () => $("sheetBg").classList.remove("show");
+$("sheetBg").onclick = e => { if(e.target === $("sheetBg")) $("sheetBg").classList.remove("show"); };
+
+function updateShareUI(){
+  $("shareStatus").textContent = syncCode
+    ? `共有中(あいことば: ${syncCode})`
+    : "あいことばで、おなじずかんに";
+}
+$("shareBtn").onclick = () => {
+  $("sheetBg").classList.remove("show");
+  if(!FIREBASE_CONFIG){ toast("共有機能はいま準備中です 🌈 もうすこし待っててね"); return; }
+  $("shareCode").value = syncCode;
+  $("shareLeave").classList.toggle("hidden", !syncCode);
+  $("shareBg").classList.add("show");
+};
+$("shareCancel").onclick = () => $("shareBg").classList.remove("show");
+$("shareBg").onclick = e => { if(e.target === $("shareBg")) $("shareBg").classList.remove("show"); };
+$("shareJoin").onclick = () => {
+  const code = $("shareCode").value.trim();
+  if(code.length < 4){ toast("あいことばは4文字以上でお願いします"); return; }
+  const localItems = state.items.slice();
+  stopSync();
+  syncCode = code;
+  try{ localStorage.setItem(SYNC_KEY, JSON.stringify({ code })); }catch(e){}
+  if(startSync()){
+    localItems.forEach(it => pushItem(it));
+    $("shareBg").classList.remove("show");
+    updateShareUI();
+    toast("共有をはじめました 🌈 ふたりでひとつのずかんです");
+  }
+};
+$("shareLeave").onclick = () => {
+  stopSync();
+  syncCode = "";
+  try{ localStorage.removeItem(SYNC_KEY); }catch(e){}
+  $("shareBg").classList.remove("show");
+  updateShareUI();
+  toast("共有を解除しました(ページはこの端末に残っています)");
+};
+
+$("exportBtn").onclick = () => {
+  const blob = new Blob([JSON.stringify(state, null, 1)], {type:"application/json"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  const d = new Date();
+  a.download = `omoide-zukan-${d.getFullYear()}${String(d.getMonth()+1).padStart(2,"0")}${String(d.getDate()).padStart(2,"0")}.json`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 3000);
+  $("sheetBg").classList.remove("show");
+  toast("バックアップを書き出しました 💾");
+};
+$("importBtn").onclick = () => $("importInput").click();
+$("importInput").onchange = e => {
+  const f = e.target.files && e.target.files[0];
+  if(!f) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try{
+      const d = JSON.parse(ev.target.result);
+      if(!d || !Array.isArray(d.items)) throw new Error("bad");
+      ask(`バックアップ(${d.items.length}ページ)を読み込みますか?\nいまのデータは置きかわります。`, () => {
+        state = d; state.started = true;
+        save();
+        $("sheetBg").classList.remove("show");
+        renderList(); show("view-list");
+        toast("おかえりなさい。復元しました 📂");
+      });
+    }catch(err){ toast("このファイルは読み込めませんでした 💦"); }
+  };
+  reader.readAsText(f);
+  e.target.value = "";
+};
+
+/* ---------- 共通UI ---------- */
+let toastTimer = null;
+function toast(msg){
+  const t = $("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove("show"), 2600);
+}
+function ask(msg, onYes){
+  $("dlgMsg").textContent = msg;
+  $("dlgBg").classList.add("show");
+  $("dlgYes").onclick = () => { $("dlgBg").classList.remove("show"); onYes(); };
+  $("dlgNo").onclick = () => $("dlgBg").classList.remove("show");
+}
+function thanksRain(){
+  const layer = $("thanksLayer");
+  const words = ["ありがとう","ありがとう","♡","🧦","🌸","ありがとう","♡","🍀"];
+  const colors = ["#E8A0A4","#A9C5A0","#E9C46A","#A5C3D4"];
+  for(let i = 0; i < 14; i++){
+    const s = document.createElement("span");
+    s.textContent = words[Math.floor(Math.random()*words.length)];
+    s.style.left = (5 + Math.random()*85) + "vw";
+    s.style.animationDelay = (Math.random()*1.1) + "s";
+    s.style.fontSize = (0.9 + Math.random()*0.8) + "rem";
+    s.style.color = colors[Math.floor(Math.random()*colors.length)];
+    layer.appendChild(s);
+    setTimeout(() => s.remove(), 4200);
+  }
+}
+
+/* ---------- 起動 ---------- */
+$("coverStart").onclick = () => {
+  state.started = true; save();
+  renderList(); show("view-list");
+};
+$("fab").onclick = () => openForm(null);
+
+if(state.started || state.items.length){
+  renderList(); show("view-list");
+}else{
+  show("view-cover");
+}
+updateShareUI();
+if(syncCode) startSync();
+</script>
+</body>
+</html>
