@@ -58,6 +58,7 @@
     display:inline-block;width:9px;height:9px;border-radius:50%;
     margin-right:7px;vertical-align:2px;
   }
+  .dot-rainbow{background:linear-gradient(135deg,#FA5F72,#FBA04C,#ECB80C,#3FBF77,#4A8CF7);}
 
   /* ---------- header ---------- */
   header{
@@ -461,7 +462,7 @@
 <div class="dlg-bg" id="namesBg">
   <div class="dlg" style="text-align:left">
     <p style="text-align:center;font-weight:700;margin-bottom:10px">🖍 なまえの登録</p>
-    <p style="font-size:.8rem;color:var(--ink-soft);margin-bottom:14px">「だれの おもいで?」に出てくるなまえです。上から順に、レインボーの色がつきます。</p>
+    <p style="font-size:.8rem;color:var(--ink-soft);margin-bottom:14px">「だれの おもいで?」に出てくるなまえです。人数はじゆうに増やせて、上から順にレインボーの色がつきます。みんなのおもいで用に「🌈かぞく」ははじめから入っています。</p>
     <div id="nameRows"></div>
     <div class="btns">
       <button class="no" id="namesCancel">やめる</button>
@@ -499,10 +500,20 @@ const MEMBERS_KEY = "omoide.members.v1";
 let members = (() => {
   try{ const m = JSON.parse(localStorage.getItem(MEMBERS_KEY)); return Array.isArray(m) ? m : []; }catch(e){ return []; }
 })();
+const FAMILY = "かぞく";
+const isFam = n => n === FAMILY;
+const RAINBOW_SOFT = "linear-gradient(135deg,#FA5F7226,#FBA04C26,#ECB80C26,#3FBF7726,#4A8CF726)";
 const whoColor = n => {
   const i = members.indexOf(n);
   return i >= 0 ? PALETTE[i % PALETTE.length] : "#A9C5A0";
 };
+function dotHtml(n, small){
+  const parts = [];
+  if(!isFam(n)) parts.push(`background:${whoColor(n)}`);
+  if(small) parts.push("width:7px", "height:7px", "margin-right:5px");
+  return `<span class="dot${isFam(n) ? " dot-rainbow" : ""}" style="${parts.join(";")}"></span>`;
+}
+const whoTagBg = n => isFam(n) ? RAINBOW_SOFT : whoColor(n) + "26";
 function saveMembers(pushCloud){
   try{ localStorage.setItem(MEMBERS_KEY, JSON.stringify(members)); }catch(e){}
   if(pushCloud && db && syncCode)
@@ -629,7 +640,7 @@ function renderList(){
       <div class="thumb">${it.photo ? `<img src="${it.photo}" alt="">` : "🧸"}</div>
       <div class="body">
         <div class="name">${esc(it.name)}</div>
-        <div class="meta">${it.who ? `<span class="dot" style="background:${whoColor(it.who)};width:7px;height:7px;margin-right:5px"></span>${esc(it.who)}${it.period ? " ・ " : ""}` : ""}${esc(it.period || "")}</div>
+        <div class="meta">${it.who ? `${dotHtml(it.who, true)}${esc(it.who)}${it.period ? " ・ " : ""}` : ""}${esc(it.period || "")}</div>
       </div>
     </button>`;
   }).join("");
@@ -652,7 +663,7 @@ function openDetail(id){
     </div>
     <h3>${esc(it.name)}</h3>
     <div class="who-period">
-      ${it.who ? `<span class="tag" style="background:${whoColor(it.who)}26"><span class="dot" style="background:${whoColor(it.who)}"></span>${esc(it.who)}</span>` : ""}
+      ${it.who ? `<span class="tag" style="background:${whoTagBg(it.who)}">${dotHtml(it.who)}${esc(it.who)}</span>` : ""}
       ${it.period ? `<span class="tag">🕰 ${esc(it.period)}</span>` : ""}
       <span class="tag">${esc(it.category || "")}</span>
     </div>
@@ -676,15 +687,18 @@ function renderCats(){
     b.onclick = () => { formCat = b.dataset.cat; renderCats(); });
 }
 function renderWhos(){
-  if(!members.length){
-    $("whoRow").innerHTML = `<span style="font-size:.78rem;color:var(--ink-soft)">メニュー(☰)の「なまえの登録」でなまえを登録すると、ここに選択肢が出てきます</span>`;
-    return;
-  }
-  $("whoRow").innerHTML = members.map((n, i) => {
-    const c = PALETTE[i % PALETTE.length];
-    return `<button class="cat ${n===formWho?"on":""}" data-who="${esc(n)}"
-      style="${n===formWho ? `background:${c}26;border-color:${c};` : ""}"><span class="dot" style="background:${c}"></span>${esc(n)}</button>`;
+  const opts = [FAMILY, ...members];
+  let html = opts.map(n => {
+    const on = n === formWho;
+    const onStyle = !on ? "" : (isFam(n)
+      ? `background:${RAINBOW_SOFT};border-color:#E8A0A4;`
+      : `background:${whoColor(n)}26;border-color:${whoColor(n)};`);
+    return `<button class="cat ${on?"on":""}" data-who="${esc(n)}" style="${onStyle}">${dotHtml(n)}${esc(n)}</button>`;
   }).join("");
+  if(!members.length){
+    html += `<span style="font-size:.78rem;color:var(--ink-soft);align-self:center">メニュー(☰)の「なまえの登録」でなまえを追加できます</span>`;
+  }
+  $("whoRow").innerHTML = html;
   $("whoRow").querySelectorAll(".cat").forEach(b =>
     b.onclick = () => { formWho = (formWho === b.dataset.who) ? "" : b.dataset.who; renderWhos(); });
 }
@@ -790,14 +804,36 @@ $("menuBtn").onclick = () => $("sheetBg").classList.add("show");
 $("closeSheet").onclick = () => $("sheetBg").classList.remove("show");
 $("sheetBg").onclick = e => { if(e.target === $("sheetBg")) $("sheetBg").classList.remove("show"); };
 
+let editNames = [];
+function readNameInputs(){
+  editNames = [...document.querySelectorAll(".nameInput")].map(x => x.value);
+}
+function renderNameRows(){
+  $("nameRows").innerHTML = editNames.map((v, i) =>
+    `<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+      <span class="dot" style="background:${PALETTE[i % PALETTE.length]};margin:0;flex:none"></span>
+      <input type="text" class="nameInput" maxlength="10" value="${esc(v)}"
+        placeholder="なまえ" style="flex:1;margin-bottom:0">
+      <button class="delName" data-i="${i}" aria-label="このなまえを消す"
+        style="color:var(--ink-soft);font-size:1.05rem;padding:4px 8px;flex:none">✕</button>
+    </div>`).join("")
+    + `<button id="addName" style="width:100%;border:1.5px dashed var(--line);border-radius:12px;
+        padding:10px;color:var(--ink-soft);font-size:.85rem;margin-bottom:14px;background:#fff">＋ なまえを追加</button>`;
+  $("nameRows").querySelectorAll(".delName").forEach(b =>
+    b.onclick = () => { readNameInputs(); editNames.splice(+b.dataset.i, 1); renderNameRows(); });
+  $("addName").onclick = () => {
+    readNameInputs();
+    if(editNames.length >= 12){ toast("なまえは12人までにしてください"); return; }
+    editNames.push("");
+    renderNameRows();
+    const ins = document.querySelectorAll(".nameInput");
+    if(ins.length) ins[ins.length-1].focus();
+  };
+}
 $("namesBtn").onclick = () => {
   $("sheetBg").classList.remove("show");
-  $("nameRows").innerHTML = [0,1,2,3,4].map(i =>
-    `<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
-      <span class="dot" style="background:${PALETTE[i]};margin:0;flex:none"></span>
-      <input type="text" class="nameInput" maxlength="10" value="${esc(members[i] || "")}"
-        placeholder="なまえ ${i+1}(あいていてもOK)" style="flex:1;margin-bottom:0">
-    </div>`).join("");
+  editNames = members.length ? members.slice() : ["", ""];
+  renderNameRows();
   $("namesBg").classList.add("show");
 };
 $("namesCancel").onclick = () => $("namesBg").classList.remove("show");
@@ -806,7 +842,7 @@ $("namesSave").onclick = () => {
   const seen = new Set();
   members = [...document.querySelectorAll(".nameInput")]
     .map(x => x.value.trim())
-    .filter(n => n && !seen.has(n) && seen.add(n));
+    .filter(n => n && n !== FAMILY && !seen.has(n) && seen.add(n));
   saveMembers(true);
   $("namesBg").classList.remove("show");
   renderList();
