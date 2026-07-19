@@ -204,9 +204,24 @@
     width:100%;border:2px dashed var(--line);border-radius:14px;background:#fff;
     padding:0;overflow:hidden;display:flex;align-items:center;justify-content:center;
     min-height:150px;flex-direction:column;gap:6px;color:var(--ink-soft);font-size:.85rem;
+    cursor:pointer;
   }
-  .photo-pick img{width:100%;max-height:290px;object-fit:contain;background:#fff;}
   .photo-pick .cam{font-size:1.8rem;}
+  .photo-thumbs{display:flex;gap:12px;padding:12px;width:100%;}
+  .photo-thumbs .pt{position:relative;flex:1;max-width:50%;}
+  .photo-thumbs .pt img{width:100%;aspect-ratio:1/1;object-fit:cover;border-radius:10px;}
+  .photo-thumbs .pt-del{
+    position:absolute;top:-7px;right:-7px;width:26px;height:26px;border-radius:50%;
+    background:var(--ink);color:#FFFDF6;font-size:.72rem;line-height:1;
+    display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow);
+  }
+  .photo-thumbs .pt-add{
+    flex:1;max-width:50%;aspect-ratio:1/1;border:2px dashed var(--line);border-radius:10px;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    color:var(--ink-soft);font-size:.72rem;gap:4px;
+  }
+  .photo-thumbs .pt-add .plus{font-size:1.5rem;line-height:1;}
+  .pf2::before{background:rgba(169,197,160,.5) !important;}
   .cat-row{display:flex;flex-wrap:wrap;gap:8px;}
   .cat{
     padding:7px 14px;border-radius:999px;font-size:.82rem;background:#fff;
@@ -393,12 +408,12 @@
       <p class="hint">手放すまえに、パシャリと一枚。</p>
 
       <div class="field">
-        <label>しゃしん <span class="opt">タップして撮影・選択</span></label>
-        <button class="photo-pick" id="photoPick">
-          <span class="cam" id="photoPlaceholder">📷</span>
-          <span id="photoText">写真をえらぶ</span>
-        </button>
-        <input type="file" id="photoInput" accept="image/*" class="hidden">
+        <label>しゃしん <span class="opt">2まいまで・裏表のある作品にどうぞ</span></label>
+        <div class="photo-pick" id="photoPick">
+          <span class="cam">📷</span>
+          <span>写真をえらぶ(2まいまで)</span>
+        </div>
+        <input type="file" id="photoInput" accept="image/*" multiple class="hidden">
       </div>
 
       <div class="field">
@@ -514,6 +529,8 @@ function dotHtml(n, small){
   return `<span class="dot${isFam(n) ? " dot-rainbow" : ""}" style="${parts.join(";")}"></span>`;
 }
 const whoTagBg = n => isFam(n) ? RAINBOW_SOFT : whoColor(n) + "26";
+/* 旧データ(photo1枚)と新データ(photos配列)の両対応 */
+const itemPhotos = it => (it.photos && it.photos.length) ? it.photos : (it.photo ? [it.photo] : []);
 function saveMembers(pushCloud){
   try{ localStorage.setItem(MEMBERS_KEY, JSON.stringify(members)); }catch(e){}
   if(pushCloud && db && syncCode)
@@ -526,7 +543,7 @@ const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt
 let state = load();
 let currentId = null;      // 表示中ページ
 let editingId = null;      // 編集中(nullなら新規)
-let formPhoto = null;      // フォームの写真dataURI
+let formPhotos = [];       // フォームの写真dataURI(最大2まい)
 let formCat = CATS[0];
 let formWho = "";
 let filterCat = "すべて";
@@ -635,9 +652,11 @@ function renderList(){
   $("emptyBox").classList.toggle("hidden", state.items.length > 0);
   $("grid").innerHTML = items.map(it => {
     const pageNo = state.items.findIndex(x => x.id === it.id) + 1;
+    const ph = itemPhotos(it);
     return `<button class="card" data-id="${it.id}">
       <div class="pageno">Page ${pageNo}</div>
-      <div class="thumb">${it.photo ? `<img src="${it.photo}" alt="">` : "🧸"}</div>
+      ${ph.length > 1 ? `<div class="pageno" style="top:auto;left:auto;bottom:8px;right:8px">${ph.length}まい</div>` : ""}
+      <div class="thumb">${ph.length ? `<img src="${ph[0]}" alt="">` : "🧸"}</div>
       <div class="body">
         <div class="name">${esc(it.name)}</div>
         <div class="meta">${it.who ? `${dotHtml(it.who, true)}${esc(it.who)}${it.period ? " ・ " : ""}` : ""}${esc(it.period || "")}</div>
@@ -656,11 +675,16 @@ function openDetail(id){
   const pageNo = state.items.findIndex(x => x.id === id) + 1;
   const d = new Date(it.createdAt);
   const dateStr = `${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日 に記録`;
+  const ph = itemPhotos(it);
+  const frames = ph.length
+    ? ph.map((p, i) =>
+        `<div class="photo-frame ${i === 1 ? "pf2" : ""}" style="transform:rotate(${i % 2 ? "1.4" : "-1.2"}deg)">
+          <img src="${p}" alt="${esc(it.name)}${ph.length > 1 ? ` その${i+1}` : ""}">
+        </div>`).join("")
+    : `<div class="photo-frame"><div class="nophoto">🧸</div></div>`;
   $("pageBody").innerHTML = `
     <div class="pagenum">Page ${pageNo} / ${state.items.length}</div>
-    <div class="photo-frame">
-      ${it.photo ? `<img src="${it.photo}" alt="${esc(it.name)}">` : `<div class="nophoto">🧸</div>`}
-    </div>
+    ${frames}
     <h3>${esc(it.name)}</h3>
     <div class="who-period">
       ${it.who ? `<span class="tag" style="background:${whoTagBg(it.who)}">${dotHtml(it.who)}${esc(it.who)}</span>` : ""}
@@ -711,44 +735,64 @@ function openForm(id){
   $("fMemo").value = it ? (it.memo || "") : "";
   formCat = it ? (it.category || CATS[0]) : CATS[0];
   formWho = it ? (it.who || "") : "";
-  formPhoto = it ? (it.photo || null) : null;
+  formPhotos = it ? itemPhotos(it).slice() : [];
   renderCats(); renderWhos(); renderPhotoPick();
   show("view-form");
 }
+const MAX_PHOTOS = 2;
 function renderPhotoPick(){
   const btn = $("photoPick");
-  if(formPhoto){
-    btn.innerHTML = `<img src="${formPhoto}" alt="えらんだ写真">`;
-  }else{
-    btn.innerHTML = `<span class="cam">📷</span><span>写真をえらぶ</span>`;
+  if(!formPhotos.length){
+    btn.innerHTML = `<span class="cam">📷</span><span>写真をえらぶ(${MAX_PHOTOS}まいまで)</span>`;
+    return;
   }
+  btn.innerHTML = `<div class="photo-thumbs">`
+    + formPhotos.map((p, i) =>
+        `<div class="pt"><img src="${p}" alt="えらんだ写真 ${i+1}"><button type="button" class="pt-del" data-i="${i}" aria-label="この写真を外す">✕</button></div>`).join("")
+    + (formPhotos.length < MAX_PHOTOS
+        ? `<div class="pt-add"><span class="plus">＋</span><span>もう1まい<br>(うら面など)</span></div>` : "")
+    + `</div>`;
 }
-$("photoPick").onclick = () => $("photoInput").click();
-$("photoInput").onchange = e => {
-  const f = e.target.files && e.target.files[0];
-  if(!f) return;
-  const reader = new FileReader();
-  reader.onload = ev => {
-    const img = new Image();
-    img.onload = () => {
-      const MAX = 1000;
-      let w = img.width, h = img.height;
-      if(Math.max(w,h) > MAX){ const r = MAX/Math.max(w,h); w = Math.round(w*r); h = Math.round(h*r); }
-      const cv = document.createElement("canvas");
-      cv.width = w; cv.height = h;
-      cv.getContext("2d").drawImage(img, 0, 0, w, h);
-      /* クラウド共有の1ページ上限(約1MB)に収まるまで圧縮 */
-      let q = 0.8, out = cv.toDataURL("image/jpeg", q);
-      while(out.length > 850000 && q > 0.45){
-        q -= 0.1;
-        out = cv.toDataURL("image/jpeg", q);
-      }
-      formPhoto = out;
-      renderPhotoPick();
+$("photoPick").onclick = e => {
+  const del = e.target.closest(".pt-del");
+  if(del){
+    formPhotos.splice(+del.dataset.i, 1);
+    renderPhotoPick();
+    return;
+  }
+  if(formPhotos.length < MAX_PHOTOS) $("photoInput").click();
+};
+function compressPhoto(f){
+  return new Promise(resolve => {
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const img = new Image();
+      img.onload = () => {
+        const MAX = 1000;
+        let w = img.width, h = img.height;
+        if(Math.max(w,h) > MAX){ const r = MAX/Math.max(w,h); w = Math.round(w*r); h = Math.round(h*r); }
+        const cv = document.createElement("canvas");
+        cv.width = w; cv.height = h;
+        cv.getContext("2d").drawImage(img, 0, 0, w, h);
+        /* 2まい合計でもクラウドの1ページ上限(約1MB)に収まるよう1まい420KBまで圧縮 */
+        let q = 0.8, out = cv.toDataURL("image/jpeg", q);
+        while(out.length > 420000 && q > 0.4){
+          q -= 0.1;
+          out = cv.toDataURL("image/jpeg", q);
+        }
+        resolve(out);
+      };
+      img.src = ev.target.result;
     };
-    img.src = ev.target.result;
-  };
-  reader.readAsDataURL(f);
+    reader.readAsDataURL(f);
+  });
+}
+$("photoInput").onchange = async e => {
+  const files = [...(e.target.files || [])].slice(0, MAX_PHOTOS - formPhotos.length);
+  for(const f of files){
+    formPhotos.push(await compressPhoto(f));
+  }
+  renderPhotoPick();
   e.target.value = "";
 };
 
@@ -761,7 +805,8 @@ $("saveBtn").onclick = () => {
     period: $("fPeriod").value.trim(),
     memo: $("fMemo").value.trim(),
     category: formCat,
-    photo: formPhoto
+    photos: formPhotos.slice(),
+    photo: formPhotos[0] || null
   };
   let savedId, savedItem;
   if(editingId){
