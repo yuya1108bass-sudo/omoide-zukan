@@ -459,6 +459,7 @@
     <button class="row" id="importBtn"><span class="ico">📂</span><span>バックアップから復元<small>書き出したファイルを読み込みます</small></span></button>
     <input type="file" id="importInput" accept=".json,application/json" class="hidden">
     <button class="row" id="closeSheet"><span class="ico">✖️</span><span>とじる</span></button>
+    <p id="usageLine" style="text-align:center;font-size:.72rem;color:var(--ink-soft);margin-top:14px"></p>
   </div>
 </div>
 
@@ -540,7 +541,7 @@ function saveMembers(pushCloud){
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 
-let state = load();
+let state = { items: [], started: false };
 let currentId = null;      // 表示中ページ
 let editingId = null;      // 編集中(nullなら新規)
 let formPhotos = [];       // フォームの写真dataURI(最大2まい)
@@ -549,21 +550,76 @@ let formWho = "";
 let filterCat = "すべて";
 let filteredIds = [];
 
-function load(){
+/* ---------- ページの保存先(IndexedDB) ----------
+   写真が入るとlocalStorage(5MB)ではすぐ満杯になるため、
+   ページ本体はIndexedDBに、started等の小さな設定だけlocalStorageに置く */
+const IDB_NAME = "omoide-db", IDB_STORE = "items";
+let idb = null;
+
+function idbOpen(){
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(IDB_NAME, 1);
+    req.onupgradeneeded = () => {
+      const d = req.result;
+      if(!d.objectStoreNames.contains(IDB_STORE)) d.createObjectStore(IDB_STORE, { keyPath:"id" });
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+function idbTx(mode, fn){
+  return new Promise((resolve, reject) => {
+    if(!idb){ reject(new Error("no db")); return; }
+    const tx = idb.transaction(IDB_STORE, mode);
+    const out = fn(tx.objectStore(IDB_STORE));
+    tx.oncomplete = () => resolve(out && out.result !== undefined ? out.result : out);
+    tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error);
+  });
+}
+const idbGetAll  = () => idbTx("readonly",  st => st.getAll());
+const idbPut     = it => idbTx("readwrite", st => st.put(it));
+const idbDel     = id => idbTx("readwrite", st => st.delete(id));
+const idbPutAll  = list => idbTx("readwrite", st => { list.forEach(it => st.put(it)); });
+const idbReplaceAll = list => idbTx("readwrite", st => { st.clear(); list.forEach(it => st.put(it)); });
+
+function quotaToast(e){
+  const full = e && (e.name === "QuotaExceededError" || String(e).includes("Quota"));
+  toast(full ? "端末の空き容量が足りません。写真を減らすか、いらないアプリの整理をお願いします 💦"
+             : "保存できませんでした 💦 もう一度おためしください");
+}
+/* startedフラグなど小さな設定だけlocalStorageへ */
+function save(){
+  try{ localStorage.setItem(LS_KEY, JSON.stringify({ started: state.started })); }catch(e){}
+  return true;
+}
+async function persistItem(it){
+  try{ await idbPut(it); return true; }
+  catch(e){ quotaToast(e); return false; }
+}
+async function initStore(){
+  try{ idb = await idbOpen(); }
+  catch(e){ toast("保存の準備でつまずきました 💦 ブラウザを開き直してみてください"); }
+  let started = false, legacy = null;
   try{
     const raw = localStorage.getItem(LS_KEY);
-    if(raw){ const d = JSON.parse(raw); if(d && Array.isArray(d.items)) return d; }
+    if(raw){ const d = JSON.parse(raw); started = !!(d && d.started);
+      if(d && Array.isArray(d.items) && d.items.length) legacy = d.items; }
   }catch(e){}
-  return { items: [], started: false };
-}
-function save(){
-  try{
-    localStorage.setItem(LS_KEY, JSON.stringify(state));
-    return true;
-  }catch(e){
-    toast("保存できませんでした。容量がいっぱいかもしれません 💦");
-    return false;
+  let items = [];
+  try{ items = (await idbGetAll()) || []; }catch(e){}
+  /* 旧localStorage版のページをIndexedDBへ引っ越し */
+  if(legacy && !items.length){
+    try{ await idbPutAll(legacy); items = legacy; }catch(e){}
   }
+  if(legacy){
+    try{ localStorage.setItem(LS_KEY, JSON.stringify({ started: true })); }catch(e){}
+    started = true;
+  }
+  items.sort((a,b) => (a.createdAt||0) - (b.createdAt||0));
+  state = { items, started };
+  /* おもいでが勝手に消されないよう、端末に「消さないで」とお願いしておく */
+  if(navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
 }
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
 
@@ -590,8 +646,19 @@ function startSync(){
     if(!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
     db = firebase.firestore();
     unsubSync = fam().onSnapshot(snap => {
-      state.items = snap.docs.map(d => d.data())
-        .sort((a,b) => (a.createdAt||0) - (b.createdAt||0));
+      /* 変わったページだけ反映(100ページあっても軽い) */
+      snap.docChanges().forEach(ch => {
+        const d = ch.doc.data();
+        if(ch.type === "removed"){
+          state.items = state.items.filter(x => x.id !== d.id);
+          idbDel(d.id).catch(() => {});
+        }else{
+          const i = state.items.findIndex(x => x.id === d.id);
+          if(i >= 0) state.items[i] = d; else state.items.push(d);
+          idbPut(d).catch(quotaToast);
+        }
+      });
+      state.items.sort((a,b) => (a.createdAt||0) - (b.createdAt||0));
       save();
       refreshView();
     }, err => toast("同期でエラーが起きました 💦"));
@@ -796,7 +863,7 @@ $("photoInput").onchange = async e => {
   e.target.value = "";
 };
 
-$("saveBtn").onclick = () => {
+$("saveBtn").onclick = async () => {
   const name = $("fName").value.trim();
   if(!name){ toast("なまえを入れてあげてください 🧦"); $("fName").focus(); return; }
   const data = {
@@ -818,7 +885,11 @@ $("saveBtn").onclick = () => {
     state.items.push(it);
     savedId = it.id; savedItem = it;
   }
-  if(!save()) return;
+  save();
+  if(!await persistItem(savedItem)){
+    if(!editingId) state.items = state.items.filter(x => x.id !== savedId);
+    return;
+  }
   pushItem(savedItem);
   filterCat = "すべて";
   renderList();
@@ -837,6 +908,7 @@ $("delBtn").onclick = () => {
   if(!it) return;
   ask(`「${it.name}」のページを手放しますか?\nこの操作はもとに戻せません。`, () => {
     removeItem(currentId);
+    idbDel(currentId).catch(() => {});
     state.items = state.items.filter(x => x.id !== currentId);
     save();
     renderList(); show("view-list");
@@ -845,7 +917,18 @@ $("delBtn").onclick = () => {
 };
 
 /* ---------- メニュー ---------- */
-$("menuBtn").onclick = () => $("sheetBg").classList.add("show");
+$("menuBtn").onclick = async () => {
+  $("sheetBg").classList.add("show");
+  let line = `${state.items.length} ページ`;
+  try{
+    if(navigator.storage && navigator.storage.estimate){
+      const { usage, quota } = await navigator.storage.estimate();
+      const mb = n => (n / 1048576).toFixed(n < 104857600 ? 1 : 0);
+      if(usage && quota) line += ` ・ ${mb(usage)}MB つかっています(あと ${mb(quota - usage)}MB ほど)`;
+    }
+  }catch(e){}
+  $("usageLine").textContent = line;
+};
 $("closeSheet").onclick = () => $("sheetBg").classList.remove("show");
 $("sheetBg").onclick = e => { if(e.target === $("sheetBg")) $("sheetBg").classList.remove("show"); };
 
@@ -952,9 +1035,11 @@ $("importInput").onchange = e => {
     try{
       const d = JSON.parse(ev.target.result);
       if(!d || !Array.isArray(d.items)) throw new Error("bad");
-      ask(`バックアップ(${d.items.length}ページ)を読み込みますか?\nいまのデータは置きかわります。`, () => {
-        state = d; state.started = true;
+      ask(`バックアップ(${d.items.length}ページ)を読み込みますか?\nいまのデータは置きかわります。`, async () => {
+        state = { items: d.items, started: true };
         save();
+        try{ await idbReplaceAll(state.items); }catch(err){ quotaToast(err); return; }
+        if(db && syncCode) state.items.forEach(it => pushItem(it));
         $("sheetBg").classList.remove("show");
         renderList(); show("view-list");
         toast("おかえりなさい。復元しました 📂");
@@ -1003,13 +1088,16 @@ $("coverStart").onclick = () => {
 };
 $("fab").onclick = () => openForm(null);
 
-if(state.started || state.items.length){
-  renderList(); show("view-list");
-}else{
-  show("view-cover");
-}
-updateShareUI();
-if(syncCode) startSync();
+(async () => {
+  await initStore();
+  if(state.started || state.items.length){
+    renderList(); show("view-list");
+  }else{
+    show("view-cover");
+  }
+  updateShareUI();
+  if(syncCode) startSync();
+})();
 </script>
 </body>
 </html>
